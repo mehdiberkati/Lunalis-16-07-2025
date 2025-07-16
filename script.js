@@ -428,11 +428,22 @@ class MyRPGLifeApp {
   }
 
   recordFocusSession(minutes) {
+    const projectSelect = document.getElementById('projectSelect');
+    const selectedProject = projectSelect ? projectSelect.value : null;
+    
     this.data.focusSessions.push({
       date: new Date().toISOString(),
       duration: minutes,
-      project: this.timerState.currentProject
+      project: selectedProject || null
     });
+    
+    // Update project total time
+    if (selectedProject) {
+      const project = this.data.projects.find(p => p.id == selectedProject);
+      if (project) {
+        project.totalTime += minutes;
+      }
+    }
   }
 
   addXP(amount, reason) {
@@ -460,12 +471,14 @@ class MyRPGLifeApp {
   saveProject() {
     const nameInput = document.getElementById('projectName');
     const descInput = document.getElementById('projectDescription');
+    const timeGoalInput = document.getElementById('projectTimeGoal');
     
     if (nameInput && nameInput.value.trim()) {
       const project = {
         id: Date.now(),
         name: nameInput.value.trim(),
         description: descInput ? descInput.value.trim() : '',
+        timeGoal: timeGoalInput ? parseInt(timeGoalInput.value) || 0 : 0,
         createdAt: new Date().toISOString(),
         totalTime: 0
       };
@@ -485,9 +498,11 @@ class MyRPGLifeApp {
     
     const nameInput = document.getElementById('projectName');
     const descInput = document.getElementById('projectDescription');
+    const timeGoalInput = document.getElementById('projectTimeGoal');
     
     if (nameInput) nameInput.value = '';
     if (descInput) descInput.value = '';
+    if (timeGoalInput) timeGoalInput.value = '';
   }
 
   renderProjects() {
@@ -497,6 +512,7 @@ class MyRPGLifeApp {
     if (this.data.projects.length === 0) {
       projectsGrid.innerHTML = `
         <div class="no-projects">
+          <div class="no-projects-icon">📋</div>
           <p>Aucun projet créé pour le moment.</p>
           <p>Créez votre premier projet pour commencer à tracker votre temps !</p>
         </div>
@@ -506,13 +522,65 @@ class MyRPGLifeApp {
     
     projectsGrid.innerHTML = this.data.projects.map(project => `
       <div class="project-card">
-        <h3>${project.name}</h3>
-        <p>${project.description || 'Aucune description'}</p>
+        <div class="project-header">
+          <h3>${project.name}</h3>
+          <div class="project-progress-ring">
+            <svg class="progress-ring" width="60" height="60">
+              <circle cx="30" cy="30" r="25" class="progress-ring-bg"></circle>
+              <circle cx="30" cy="30" r="25" class="progress-ring-fill" 
+                style="stroke-dasharray: ${2 * Math.PI * 25}; 
+                       stroke-dashoffset: ${2 * Math.PI * 25 * (1 - Math.min(project.totalTime / 60 / (project.timeGoal || 1), 1))}"></circle>
+            </svg>
+            <div class="progress-percentage">
+              ${project.timeGoal > 0 ? Math.round((project.totalTime / 60) / project.timeGoal * 100) : 0}%
+            </div>
+          </div>
+        </div>
+        
+        <p class="project-description">${project.description || 'Aucune description'}</p>
+        
         <div class="project-stats">
-          <span>Temps total: ${Math.floor(project.totalTime / 60)}h ${project.totalTime % 60}min</span>
+          <div class="stat-item">
+            <span class="stat-icon">⏱️</span>
+            <div class="stat-content">
+              <div class="stat-value">${Math.floor(project.totalTime / 60)}h ${project.totalTime % 60}min</div>
+              <div class="stat-label">Temps total</div>
+            </div>
+          </div>
+          
+          ${project.timeGoal > 0 ? `
+            <div class="stat-item">
+              <span class="stat-icon">🎯</span>
+              <div class="stat-content">
+                <div class="stat-value">${project.timeGoal}h</div>
+                <div class="stat-label">Objectif</div>
+              </div>
+            </div>
+            
+            <div class="stat-item">
+              <span class="stat-icon">📈</span>
+              <div class="stat-content">
+                <div class="stat-value">${Math.max(0, project.timeGoal - Math.floor(project.totalTime / 60))}h</div>
+                <div class="stat-label">Restant</div>
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `).join('');
+    
+    // Update project selector in focus timer
+    this.updateProjectSelector();
+  }
+  
+  updateProjectSelector() {
+    const projectSelect = document.getElementById('projectSelect');
+    if (!projectSelect) return;
+    
+    projectSelect.innerHTML = '<option value="">Sélectionner un projet</option>' +
+      this.data.projects.map(project => 
+        `<option value="${project.id}">${project.name}</option>`
+      ).join('');
   }
 
   // Modal functions
@@ -762,6 +830,15 @@ class MyRPGLifeApp {
         </div>
         
         <div class="detail-section">
+          <h4>📋 Temps Focus par Projet</h4>
+          <div class="projects-focus-stats">
+            ${this.renderProjectsFocusStats()}
+          </div>
+        </div>
+      </div>
+      
+      <div class="progression-details">
+        <div class="detail-section full-width">
           <h4>📋 Projets les Plus Actifs</h4>
           <div class="projects-stats">
             ${this.renderProjectsStats()}
@@ -771,90 +848,258 @@ class MyRPGLifeApp {
     `;
   }
 
+  renderProjectsFocusStats() {
+    const projectStats = this.getProjectsFocusStats();
+    
+    if (projectStats.length === 0) {
+      return '<p class="no-projects-stats">Aucune session de focus enregistrée</p>';
+    }
+    
+    return projectStats.map(stat => `
+      <div class="project-focus-stat">
+        <div class="project-focus-info">
+          <div class="project-focus-name">${stat.name}</div>
+          <div class="project-focus-sessions">${stat.sessions} session${stat.sessions > 1 ? 's' : ''}</div>
+        </div>
+        <div class="project-focus-time">
+          <div class="focus-time-value">${Math.floor(stat.totalTime / 60)}h ${stat.totalTime % 60}min</div>
+          <div class="focus-time-bar">
+            <div class="focus-time-fill" style="width: ${(stat.totalTime / Math.max(...projectStats.map(s => s.totalTime))) * 100}%"></div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+  
+  getProjectsFocusStats() {
+    const stats = new Map();
+    
+    // Initialize with "Général" for sessions without project
+    stats.set(null, {
+      name: 'Général',
+      totalTime: 0,
+      sessions: 0
+    });
+    
+    // Initialize with all projects
+    this.data.projects.forEach(project => {
+      stats.set(project.id, {
+        name: project.name,
+        totalTime: 0,
+        sessions: 0
+      });
+    });
+    
+    // Calculate stats from focus sessions
+    this.data.focusSessions.forEach(session => {
+      const projectId = session.project;
+      if (stats.has(projectId)) {
+        stats.get(projectId).totalTime += session.duration;
+        stats.get(projectId).sessions += 1;
+      }
+    });
+    
+    // Convert to array and filter out empty stats
+    return Array.from(stats.values())
+      .filter(stat => stat.sessions > 0)
+      .sort((a, b) => b.totalTime - a.totalTime);
+  }
+
   renderSettings() {
     const settingsContent = document.getElementById('settingsContent');
     if (!settingsContent) return;
 
     settingsContent.innerHTML = `
-      <div class="settings-sections">
-        <div class="settings-section">
-          <h3>🎯 Paramètres de Focus</h3>
-          <div class="setting-item">
-            <label>Durée par défaut des sessions</label>
-            <select id="defaultFocusDuration">
-              <option value="15">15 minutes</option>
-              <option value="25" selected>25 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="90">90 minutes</option>
-            </select>
+      <div class="settings-grid">
+        <!-- Paramètres de Focus -->
+        <div class="settings-card focus-settings">
+          <div class="settings-header">
+            <div class="settings-icon">🎯</div>
+            <h3>Paramètres de Focus</h3>
           </div>
           
-          <div class="setting-item">
-            <label class="setting-toggle">
-              <input type="checkbox" id="autoBreaksEnabled" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Pauses automatiques activées</span>
-            </label>
-          </div>
-          
-          <div class="setting-item">
-            <label class="setting-toggle">
-              <input type="checkbox" id="soundNotifications" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Notifications sonores</span>
-            </label>
+          <div class="settings-content">
+            <div class="setting-group">
+              <label class="setting-label">
+                <span class="label-icon">⏱️</span>
+                Durée par défaut des sessions
+              </label>
+              <div class="select-wrapper">
+                <select id="defaultFocusDuration" class="modern-select">
+                  <option value="15">15 minutes</option>
+                  <option value="25" selected>25 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="90">90 minutes</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="setting-group">
+              <div class="toggle-setting">
+                <div class="toggle-info">
+                  <span class="toggle-icon">⏸️</span>
+                  <div class="toggle-text">
+                    <div class="toggle-title">Pauses automatiques</div>
+                    <div class="toggle-subtitle">5 min toutes les 25 min</div>
+                  </div>
+                </div>
+                <label class="modern-toggle">
+                  <input type="checkbox" id="autoBreaksEnabled" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="setting-group">
+              <div class="toggle-setting">
+                <div class="toggle-info">
+                  <span class="toggle-icon">🔊</span>
+                  <div class="toggle-text">
+                    <div class="toggle-title">Notifications sonores</div>
+                    <div class="toggle-subtitle">Sons de fin de session</div>
+                  </div>
+                </div>
+                <label class="modern-toggle">
+                  <input type="checkbox" id="soundNotifications" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="settings-section">
-          <h3>🎨 Apparence</h3>
-          <div class="setting-item">
-            <label>Thème de couleur</label>
-            <select id="colorTheme">
-              <option value="default" selected>Lunalis (Défaut)</option>
-              <option value="fire">Solaris (Rouge/Orange)</option>
-              <option value="nature">Verdalis (Vert/Nature)</option>
-              <option value="cosmic">Cosmalis (Violet/Rose)</option>
-            </select>
+        <!-- Apparence -->
+        <div class="settings-card appearance-settings">
+          <div class="settings-header">
+            <div class="settings-icon">🎨</div>
+            <h3>Apparence</h3>
           </div>
           
-          <div class="setting-item">
-            <label class="setting-toggle">
-              <input type="checkbox" id="animationsEnabled" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Animations activées</span>
-            </label>
+          <div class="settings-content">
+            <div class="setting-group">
+              <label class="setting-label">
+                <span class="label-icon">🌈</span>
+                Thème de couleur
+              </label>
+              <div class="theme-selector">
+                <div class="theme-option" data-theme="default">
+                  <div class="theme-preview lunalis"></div>
+                  <span class="theme-name">Lunalis</span>
+                  <span class="theme-subtitle">Bleu/Violet</span>
+                </div>
+                <div class="theme-option" data-theme="fire">
+                  <div class="theme-preview solaris"></div>
+                  <span class="theme-name">Solaris</span>
+                  <span class="theme-subtitle">Rouge/Orange</span>
+                </div>
+                <div class="theme-option" data-theme="nature">
+                  <div class="theme-preview verdalis"></div>
+                  <span class="theme-name">Verdalis</span>
+                  <span class="theme-subtitle">Vert/Nature</span>
+                </div>
+                <div class="theme-option" data-theme="cosmic">
+                  <div class="theme-preview cosmalis"></div>
+                  <span class="theme-name">Cosmalis</span>
+                  <span class="theme-subtitle">Violet/Rose</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="setting-group">
+              <div class="toggle-setting">
+                <div class="toggle-info">
+                  <span class="toggle-icon">✨</span>
+                  <div class="toggle-text">
+                    <div class="toggle-title">Animations</div>
+                    <div class="toggle-subtitle">Effets visuels et transitions</div>
+                  </div>
+                </div>
+                <label class="modern-toggle">
+                  <input type="checkbox" id="animationsEnabled" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="settings-section">
-          <h3>📊 Données</h3>
-          <div class="setting-item">
-            <button class="settings-btn secondary" onclick="app.exportData()">
-              📤 Exporter mes données
-            </button>
+        <!-- Gestion des Données -->
+        <div class="settings-card data-settings">
+          <div class="settings-header">
+            <div class="settings-icon">💾</div>
+            <h3>Gestion des Données</h3>
           </div>
           
-          <div class="setting-item">
-            <button class="settings-btn secondary" onclick="app.importData()">
-              📥 Importer des données
-            </button>
-          </div>
-          
-          <div class="setting-item">
-            <button class="settings-btn danger" onclick="app.resetAllData()">
-              🗑️ Réinitialiser toutes les données
-            </button>
+          <div class="settings-content">
+            <div class="data-actions">
+              <button class="data-btn export-btn" onclick="app.exportData()">
+                <span class="btn-icon">📤</span>
+                <div class="btn-content">
+                  <div class="btn-title">Exporter</div>
+                  <div class="btn-subtitle">Sauvegarder mes données</div>
+                </div>
+              </button>
+              
+              <button class="data-btn import-btn" onclick="app.importData()">
+                <span class="btn-icon">📥</span>
+                <div class="btn-content">
+                  <div class="btn-title">Importer</div>
+                  <div class="btn-subtitle">Restaurer des données</div>
+                </div>
+              </button>
+              
+              <button class="data-btn reset-btn" onclick="app.resetAllData()">
+                <span class="btn-icon">🗑️</span>
+                <div class="btn-content">
+                  <div class="btn-title">Réinitialiser</div>
+                  <div class="btn-subtitle">Effacer toutes les données</div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
         
-        <div class="settings-section">
-          <h3>ℹ️ Informations</h3>
-          <div class="app-info">
-            <p><strong>Version:</strong> 3.0.0 - Lunalis</p>
-            <p><strong>Données sauvegardées:</strong> ${new Date(this.data.lastSaved || Date.now()).toLocaleString()}</p>
-            <p><strong>Sessions totales:</strong> ${this.data.focusSessions.length}</p>
-            <p><strong>Projets créés:</strong> ${this.data.projects.length}</p>
+        <!-- Informations -->
+        <div class="settings-card info-settings">
+          <div class="settings-header">
+            <div class="settings-icon">ℹ️</div>
+            <h3>Informations</h3>
+          </div>
+          
+          <div class="settings-content">
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-icon">🚀</div>
+                <div class="info-content">
+                  <div class="info-value">3.0.0 - Lunalis</div>
+                  <div class="info-label">Version</div>
+                </div>
+              </div>
+              
+              <div class="info-item">
+                <div class="info-icon">💾</div>
+                <div class="info-content">
+                  <div class="info-value">${new Date(this.data.lastSaved || Date.now()).toLocaleDateString()}</div>
+                  <div class="info-label">Dernière sauvegarde</div>
+                </div>
+              </div>
+              
+              <div class="info-item">
+                <div class="info-icon">🎯</div>
+                <div class="info-content">
+                  <div class="info-value">${this.data.focusSessions.length}</div>
+                  <div class="info-label">Sessions totales</div>
+                </div>
+              </div>
+              
+              <div class="info-item">
+                <div class="info-icon">📋</div>
+                <div class="info-content">
+                  <div class="info-value">${this.data.projects.length}</div>
+                  <div class="info-label">Projets créés</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1194,12 +1439,24 @@ class MyRPGLifeApp {
   }
 
   setupSettingsListeners() {
-    // Theme change
-    const themeSelect = document.getElementById('colorTheme');
-    if (themeSelect) {
-      themeSelect.addEventListener('change', (e) => {
-        this.changeTheme(e.target.value);
+    // Theme selection
+    const themeOptions = document.querySelectorAll('.theme-option');
+    themeOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove active class from all options
+        themeOptions.forEach(opt => opt.classList.remove('active'));
+        // Add active class to clicked option
+        option.classList.add('active');
+        // Change theme
+        this.changeTheme(option.dataset.theme);
       });
+    });
+    
+    // Set current theme as active
+    const currentTheme = this.data.settings?.theme || 'default';
+    const currentThemeOption = document.querySelector(`[data-theme="${currentTheme}"]`);
+    if (currentThemeOption) {
+      currentThemeOption.classList.add('active');
     }
     
     // Other settings listeners can be added here
