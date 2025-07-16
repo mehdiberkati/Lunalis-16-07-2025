@@ -1711,16 +1711,6 @@ class MyRPGLife {
 }
 
 // Initialisation de l'application
-let app;
-document.addEventListener('DOMContentLoaded', () => {
-    app = new MyRPGLife();
-    // Rendre l'objet app accessible globalement pour les fonctions onclick restantes
-    window.app = app;
-});
-
-// Fonction globale pour la compatibilité avec les onclick restants
-function initializeApp() {
-    if (typeof app !== 'undefined') {
-        window.app = app;
-    }
-}
+const app = new MyRPGLife();
+// Rendre l'objet app accessible globalement pour les fonctions onclick restantes
+window.app = app;
