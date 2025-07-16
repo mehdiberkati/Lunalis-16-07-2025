@@ -382,7 +382,7 @@ class MyRPGLife {
         document.getElementById('dailySessions').textContent = this.data.dailyFocusStats.sessions;
         document.getElementById('dailyFocusTime').textContent = `${Math.round(this.data.dailyFocusStats.totalTime)}min`;
         document.getElementById('dailyFocusXP').textContent = this.data.dailyFocusStats.totalXP;
-        document.getElementById('focusStreak').textContent = this.data.dailyFocusStats.streak;
+        document.getElementById('streakDays').textContent = this.data.dailyFocusStats.streak;
         
         // Mettre à jour la barre de progression (objectif: 2 sessions)
         const progressPercent = Math.min(100, (this.data.dailyFocusStats.sessions / 2) * 100);
