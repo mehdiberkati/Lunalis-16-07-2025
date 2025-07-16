@@ -1,4 +1,5 @@
 // MyRPGLife 3 - Lunalis - Système de gamification avancé
+import { calculateFocusXP, calculateIntensityRate, getIntensityLabel } from './xp.js';
 class MyRPGLife {
     constructor() {
         this.data = this.loadData();
@@ -460,10 +461,7 @@ class MyRPGLife {
     }
     
     calculateFocusXP(minutes) {
-        // 18 min = 1 XP (obligatoire) ou 2 XP (bonus)
-        const baseXP = minutes / 18;
-        const isBonus = this.data.mandatorySessionsToday >= 2;
-        return Math.round(baseXP * (isBonus ? 2 : 1));
+        return calculateFocusXP(minutes, this.data.mandatorySessionsToday);
     }
     
     updateMandatoryBlocks() {
@@ -1318,17 +1316,11 @@ class MyRPGLife {
     }
     
     calculateIntensityRate() {
-        if (this.data.weeklyScores.length === 0) return 0;
-        
-        const recentScores = this.data.weeklyScores.slice(-4); // 4 dernières semaines
-        const average = recentScores.reduce((sum, score) => sum + score.percentage, 0) / recentScores.length;
-        return Math.round(average);
+        return calculateIntensityRate(this.data.weeklyScores);
     }
-    
+
     getIntensityLabel() {
-        const rate = this.data.intensityRate;
-        const level = this.intensityLevels.find(l => rate >= l.min && rate <= l.max);
-        return level ? level.label : 'Errant du Néant';
+        return getIntensityLabel(this.data.intensityRate, this.intensityLevels);
     }
     
     // Affichage des sections
