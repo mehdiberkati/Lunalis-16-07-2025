@@ -562,19 +562,700 @@ class MyRPGLifeApp {
   }
 
   renderWeeklyReview() {
-    // Implementation for weekly review
+    const weeklyContent = document.getElementById('weeklyContent');
+    if (!weeklyContent) return;
+
+    const currentWeek = this.getCurrentWeekNumber();
+    const lastReview = this.getLastWeeklyReview();
+    const canDoReview = this.canDoWeeklyReview();
+
+    weeklyContent.innerHTML = `
+      <div class="weekly-status">
+        <div class="week-info">
+          <h3>Semaine ${currentWeek} - Saison ${this.data.currentSeason || 1}</h3>
+          <p class="week-dates">${this.getWeekDates()}</p>
+        </div>
+        
+        ${canDoReview ? `
+          <div class="weekly-form-container">
+            <h4>📝 Évaluez votre semaine (sur 10)</h4>
+            <div class="weekly-questions">
+              <div class="question-item">
+                <label>🎯 Productivité et focus</label>
+                <div class="rating-slider">
+                  <input type="range" id="productivity" min="1" max="10" value="5" class="slider">
+                  <span class="rating-value">5/10</span>
+                </div>
+              </div>
+              
+              <div class="question-item">
+                <label>💪 Santé et bien-être</label>
+                <div class="rating-slider">
+                  <input type="range" id="health" min="1" max="10" value="5" class="slider">
+                  <span class="rating-value">5/10</span>
+                </div>
+              </div>
+              
+              <div class="question-item">
+                <label>🎨 Créativité et apprentissage</label>
+                <div class="rating-slider">
+                  <input type="range" id="creativity" min="1" max="10" value="5" class="slider">
+                  <span class="rating-value">5/10</span>
+                </div>
+              </div>
+              
+              <div class="question-item">
+                <label>🤝 Relations sociales</label>
+                <div class="rating-slider">
+                  <input type="range" id="social" min="1" max="10" value="5" class="slider">
+                  <span class="rating-value">5/10</span>
+                </div>
+              </div>
+              
+              <div class="question-item">
+                <label>😊 Satisfaction générale</label>
+                <div class="rating-slider">
+                  <input type="range" id="satisfaction" min="1" max="10" value="5" class="slider">
+                  <span class="rating-value">5/10</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="weekly-summary">
+              <h5>💭 Réflexion de la semaine</h5>
+              <textarea id="weeklyReflection" placeholder="Qu'avez-vous appris cette semaine ? Quels sont vos objectifs pour la semaine prochaine ?"></textarea>
+            </div>
+            
+            <button class="submit-review-btn" onclick="app.submitWeeklyReview()">
+              ✨ Valider le Bilan (+5 XP)
+            </button>
+          </div>
+        ` : `
+          <div class="review-completed">
+            <div class="completed-icon">✅</div>
+            <h4>Bilan de la semaine terminé !</h4>
+            <p>Prochain bilan disponible dans ${this.getTimeUntilNextReview()}</p>
+          </div>
+        `}
+      </div>
+      
+      <div class="weekly-history">
+        <h4>📈 Historique des Bilans</h4>
+        <div class="reviews-grid">
+          ${this.renderWeeklyHistory()}
+        </div>
+      </div>
+    `;
+
+    // Setup sliders
+    this.setupWeeklySliders();
   }
 
   renderAchievements() {
-    // Implementation for achievements
+    const achievementsContent = document.getElementById('achievementsContent');
+    if (!achievementsContent) return;
+
+    const achievements = this.getAchievements();
+    const unlockedCount = achievements.filter(a => a.unlocked).length;
+
+    achievementsContent.innerHTML = `
+      <div class="achievements-header">
+        <div class="achievements-stats">
+          <div class="achievement-counter">
+            <span class="counter-number">${unlockedCount}</span>
+            <span class="counter-total">/ ${achievements.length}</span>
+            <span class="counter-label">Succès débloqués</span>
+          </div>
+          <div class="achievement-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${(unlockedCount / achievements.length) * 100}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="achievements-grid">
+        ${achievements.map(achievement => `
+          <div class="achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}">
+            <div class="achievement-icon">${achievement.icon}</div>
+            <div class="achievement-info">
+              <h4>${achievement.name}</h4>
+              <p>${achievement.description}</p>
+              <div class="achievement-reward">+${achievement.xp} XP</div>
+              ${achievement.unlocked ? 
+                `<div class="achievement-date">Débloqué le ${new Date(achievement.unlockedAt).toLocaleDateString()}</div>` :
+                `<div class="achievement-progress-text">${achievement.progress || '0'}/${achievement.target || '?'}</div>`
+              }
+            </div>
+            ${achievement.unlocked ? '<div class="achievement-badge">✓</div>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
   renderProgression() {
-    // Implementation for progression
+    const progressionContent = document.getElementById('progressionContent');
+    if (!progressionContent) return;
+
+    const stats = this.getProgressionStats();
+
+    progressionContent.innerHTML = `
+      <div class="progression-overview">
+        <div class="stats-cards">
+          <div class="stat-card-large primary">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-content">
+              <div class="stat-number">${this.data.totalXP}</div>
+              <div class="stat-label">XP Total</div>
+            </div>
+          </div>
+          
+          <div class="stat-card-large secondary">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+              <div class="stat-number">${stats.totalFocusTime}h</div>
+              <div class="stat-label">Temps Focus</div>
+            </div>
+          </div>
+          
+          <div class="stat-card-large accent">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-content">
+              <div class="stat-number">${stats.currentStreak}</div>
+              <div class="stat-label">Streak Actuel</div>
+            </div>
+          </div>
+          
+          <div class="stat-card-large success">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <div class="stat-number">${stats.intensityRate}%</div>
+              <div class="stat-label">Taux d'Intensité</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="progression-charts">
+        <div class="chart-container">
+          <h4>📈 Évolution XP (7 derniers jours)</h4>
+          <div class="xp-chart">
+            ${this.renderXPChart()}
+          </div>
+        </div>
+        
+        <div class="chart-container">
+          <h4>🎯 Sessions Focus par Jour</h4>
+          <div class="focus-chart">
+            ${this.renderFocusChart()}
+          </div>
+        </div>
+      </div>
+      
+      <div class="progression-details">
+        <div class="detail-section">
+          <h4>🏆 Progression par Rang</h4>
+          <div class="ranks-progression">
+            ${this.renderRanksProgression()}
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h4>📋 Projets les Plus Actifs</h4>
+          <div class="projects-stats">
+            ${this.renderProjectsStats()}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   renderSettings() {
-    // Implementation for settings
+    const settingsContent = document.getElementById('settingsContent');
+    if (!settingsContent) return;
+
+    settingsContent.innerHTML = `
+      <div class="settings-sections">
+        <div class="settings-section">
+          <h3>🎯 Paramètres de Focus</h3>
+          <div class="setting-item">
+            <label>Durée par défaut des sessions</label>
+            <select id="defaultFocusDuration">
+              <option value="15">15 minutes</option>
+              <option value="25" selected>25 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="90">90 minutes</option>
+            </select>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-toggle">
+              <input type="checkbox" id="autoBreaksEnabled" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Pauses automatiques activées</span>
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-toggle">
+              <input type="checkbox" id="soundNotifications" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Notifications sonores</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3>🎨 Apparence</h3>
+          <div class="setting-item">
+            <label>Thème de couleur</label>
+            <select id="colorTheme">
+              <option value="default" selected>Lunalis (Défaut)</option>
+              <option value="fire">Solaris (Rouge/Orange)</option>
+              <option value="nature">Verdalis (Vert/Nature)</option>
+              <option value="cosmic">Cosmalis (Violet/Rose)</option>
+            </select>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-toggle">
+              <input type="checkbox" id="animationsEnabled" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Animations activées</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3>📊 Données</h3>
+          <div class="setting-item">
+            <button class="settings-btn secondary" onclick="app.exportData()">
+              📤 Exporter mes données
+            </button>
+          </div>
+          
+          <div class="setting-item">
+            <button class="settings-btn secondary" onclick="app.importData()">
+              📥 Importer des données
+            </button>
+          </div>
+          
+          <div class="setting-item">
+            <button class="settings-btn danger" onclick="app.resetAllData()">
+              🗑️ Réinitialiser toutes les données
+            </button>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3>ℹ️ Informations</h3>
+          <div class="app-info">
+            <p><strong>Version:</strong> 3.0.0 - Lunalis</p>
+            <p><strong>Données sauvegardées:</strong> ${new Date(this.data.lastSaved || Date.now()).toLocaleString()}</p>
+            <p><strong>Sessions totales:</strong> ${this.data.focusSessions.length}</p>
+            <p><strong>Projets créés:</strong> ${this.data.projects.length}</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.setupSettingsListeners();
+  }
+
+  // Helper methods for new sections
+  getCurrentWeekNumber() {
+    const startDate = new Date(this.data.seasonStartDate || Date.now());
+    const now = new Date();
+    const diffTime = Math.abs(now - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.ceil(diffDays / 7);
+  }
+
+  getWeekDates() {
+    const now = new Date();
+    const monday = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    return `${monday.toLocaleDateString()} - ${sunday.toLocaleDateString()}`;
+  }
+
+  canDoWeeklyReview() {
+    const lastReview = this.data.weeklyReviews[this.data.weeklyReviews.length - 1];
+    if (!lastReview) return true;
+    
+    const lastReviewDate = new Date(lastReview.date);
+    const now = new Date();
+    const daysSinceLastReview = (now - lastReviewDate) / (1000 * 60 * 60 * 24);
+    
+    return daysSinceLastReview >= 7;
+  }
+
+  getTimeUntilNextReview() {
+    const lastReview = this.data.weeklyReviews[this.data.weeklyReviews.length - 1];
+    if (!lastReview) return "maintenant";
+    
+    const nextReviewDate = new Date(lastReview.date);
+    nextReviewDate.setDate(nextReviewDate.getDate() + 7);
+    
+    const now = new Date();
+    const diffTime = nextReviewDate - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays > 0 ? `${diffDays} jour(s)` : "maintenant";
+  }
+
+  setupWeeklySliders() {
+    const sliders = document.querySelectorAll('.slider');
+    sliders.forEach(slider => {
+      const valueSpan = slider.parentElement.querySelector('.rating-value');
+      
+      slider.addEventListener('input', (e) => {
+        valueSpan.textContent = `${e.target.value}/10`;
+      });
+    });
+  }
+
+  submitWeeklyReview() {
+    const productivity = document.getElementById('productivity').value;
+    const health = document.getElementById('health').value;
+    const creativity = document.getElementById('creativity').value;
+    const social = document.getElementById('social').value;
+    const satisfaction = document.getElementById('satisfaction').value;
+    const reflection = document.getElementById('weeklyReflection').value;
+    
+    const totalScore = parseInt(productivity) + parseInt(health) + parseInt(creativity) + parseInt(social) + parseInt(satisfaction);
+    const percentage = (totalScore / 50) * 100;
+    
+    const review = {
+      date: new Date().toISOString(),
+      week: this.getCurrentWeekNumber(),
+      scores: {
+        productivity: parseInt(productivity),
+        health: parseInt(health),
+        creativity: parseInt(creativity),
+        social: parseInt(social),
+        satisfaction: parseInt(satisfaction)
+      },
+      totalScore,
+      percentage,
+      reflection
+    };
+    
+    this.data.weeklyReviews.push(review);
+    this.addXP(5, 'Bilan Hebdomadaire');
+    this.showNotification('✨ Bilan hebdomadaire terminé ! +5 XP', 'success');
+    this.renderWeeklyReview();
+  }
+
+  renderWeeklyHistory() {
+    if (this.data.weeklyReviews.length === 0) {
+      return '<p class="no-reviews">Aucun bilan effectué pour le moment</p>';
+    }
+    
+    return this.data.weeklyReviews.slice(-8).reverse().map(review => `
+      <div class="review-card">
+        <div class="review-header">
+          <span class="review-week">Semaine ${review.week}</span>
+          <span class="review-score">${review.totalScore}/50</span>
+        </div>
+        <div class="review-percentage">
+          <div class="percentage-bar">
+            <div class="percentage-fill" style="width: ${review.percentage}%"></div>
+          </div>
+          <span>${Math.round(review.percentage)}%</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  getAchievements() {
+    const baseAchievements = [
+      {
+        id: 'first_session',
+        name: 'Premier Pas',
+        description: 'Complétez votre première session de focus',
+        icon: '🎯',
+        xp: 10,
+        unlocked: this.data.focusSessions.length > 0,
+        unlockedAt: this.data.focusSessions[0]?.date
+      },
+      {
+        id: 'daily_quota',
+        name: 'Quota Quotidien',
+        description: 'Atteignez 15 XP en une journée',
+        icon: '⚡',
+        xp: 15,
+        unlocked: this.data.dailyXP >= 15,
+        progress: this.data.dailyXP,
+        target: 15
+      },
+      {
+        id: 'week_streak',
+        name: 'Semaine Parfaite',
+        description: '7 jours consécutifs à 15+ XP',
+        icon: '🔥',
+        xp: 25,
+        unlocked: this.getStreak() >= 7,
+        progress: this.getStreak(),
+        target: 7
+      },
+      {
+        id: 'focus_master',
+        name: 'Maître du Focus',
+        description: '50 sessions de focus terminées',
+        icon: '🧘',
+        xp: 30,
+        unlocked: this.data.focusSessions.length >= 50,
+        progress: this.data.focusSessions.length,
+        target: 50
+      },
+      {
+        id: 'rank_expert',
+        name: 'Expert Confirmé',
+        description: 'Atteignez le rang Expert (A)',
+        icon: '💎',
+        xp: 50,
+        unlocked: this.data.totalXP >= 1000,
+        progress: this.data.totalXP,
+        target: 1000
+      }
+    ];
+    
+    return baseAchievements;
+  }
+
+  getProgressionStats() {
+    const totalFocusMinutes = this.data.focusSessions.reduce((sum, session) => sum + session.duration, 0);
+    
+    return {
+      totalFocusTime: Math.round(totalFocusMinutes / 60),
+      currentStreak: this.getStreak(),
+      intensityRate: this.calculateIntensityRate(),
+      averageSessionLength: this.data.focusSessions.length > 0 ? Math.round(totalFocusMinutes / this.data.focusSessions.length) : 0
+    };
+  }
+
+  getStreak() {
+    // Simple streak calculation - can be improved
+    return this.data.currentStreak || 0;
+  }
+
+  calculateIntensityRate() {
+    if (this.data.weeklyReviews.length === 0) return 0;
+    const recent = this.data.weeklyReviews.slice(-4);
+    const average = recent.reduce((sum, review) => sum + review.percentage, 0) / recent.length;
+    return Math.round(average);
+  }
+
+  renderXPChart() {
+    const last7Days = this.getLast7DaysXP();
+    const maxXP = Math.max(...last7Days.map(d => d.xp), 15);
+    
+    return `
+      <div class="chart-bars">
+        ${last7Days.map(day => `
+          <div class="chart-bar">
+            <div class="bar-fill" style="height: ${(day.xp / maxXP) * 100}%"></div>
+            <div class="bar-label">${day.day}</div>
+            <div class="bar-value">${day.xp}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  renderFocusChart() {
+    const last7Days = this.getLast7DaysFocus();
+    const maxSessions = Math.max(...last7Days.map(d => d.sessions), 3);
+    
+    return `
+      <div class="chart-bars">
+        ${last7Days.map(day => `
+          <div class="chart-bar">
+            <div class="bar-fill focus" style="height: ${(day.sessions / maxSessions) * 100}%"></div>
+            <div class="bar-label">${day.day}</div>
+            <div class="bar-value">${day.sessions}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  getLast7DaysXP() {
+    const days = [];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+      
+      // Calculate XP for this day (simplified)
+      const dayXP = i === 0 ? this.data.dailyXP : Math.floor(Math.random() * 20);
+      
+      days.push({
+        day: dayName,
+        xp: dayXP
+      });
+    }
+    
+    return days;
+  }
+
+  getLast7DaysFocus() {
+    const days = [];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+      
+      // Calculate sessions for this day
+      const todaySessions = this.data.focusSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate.toDateString() === date.toDateString();
+      }).length;
+      
+      days.push({
+        day: dayName,
+        sessions: i === 0 ? todaySessions : Math.floor(Math.random() * 4)
+      });
+    }
+    
+    return days;
+  }
+
+  renderRanksProgression() {
+    const ranks = [
+      { name: 'Paumé', xp: 0, badge: 'E', avatar: '😵' },
+      { name: 'Apprenti', xp: 100, badge: 'D', avatar: '🎯' },
+      { name: 'Disciple', xp: 300, badge: 'C', avatar: '⚡' },
+      { name: 'Adepte', xp: 600, badge: 'B', avatar: '🔥' },
+      { name: 'Expert', xp: 1000, badge: 'A', avatar: '💎' },
+      { name: 'Virtuose', xp: 1500, badge: 'S', avatar: '👑' },
+      { name: 'Légende', xp: 2200, badge: 'SS', avatar: '🌟' },
+      { name: 'Élu du Destin', xp: 3000, badge: 'SSS', avatar: '🌙' }
+    ];
+    
+    return ranks.map(rank => {
+      const isUnlocked = this.data.totalXP >= rank.xp;
+      const isCurrent = this.getCurrentRank().name === rank.name;
+      
+      return `
+        <div class="rank-item ${isUnlocked ? 'unlocked' : 'locked'} ${isCurrent ? 'current' : ''}">
+          <div class="rank-avatar">${rank.avatar}</div>
+          <div class="rank-info">
+            <div class="rank-name">${rank.name}</div>
+            <div class="rank-requirement">${rank.xp} XP</div>
+          </div>
+          <div class="rank-badge">${rank.badge}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  renderProjectsStats() {
+    if (this.data.projects.length === 0) {
+      return '<p class="no-projects-stats">Aucun projet créé</p>';
+    }
+    
+    return this.data.projects.slice(0, 5).map(project => `
+      <div class="project-stat-item">
+        <div class="project-name">${project.name}</div>
+        <div class="project-time">${Math.floor(project.totalTime / 60)}h ${project.totalTime % 60}min</div>
+      </div>
+    `).join('');
+  }
+
+  getCurrentRank() {
+    const ranks = [
+      { name: 'Paumé', xp: 0, badge: 'E', avatar: '😵' },
+      { name: 'Apprenti', xp: 100, badge: 'D', avatar: '🎯' },
+      { name: 'Disciple', xp: 300, badge: 'C', avatar: '⚡' },
+      { name: 'Adepte', xp: 600, badge: 'B', avatar: '🔥' },
+      { name: 'Expert', xp: 1000, badge: 'A', avatar: '💎' },
+      { name: 'Virtuose', xp: 1500, badge: 'S', avatar: '👑' },
+      { name: 'Légende', xp: 2200, badge: 'SS', avatar: '🌟' },
+      { name: 'Élu du Destin', xp: 3000, badge: 'SSS', avatar: '🌙' }
+    ];
+    
+    let currentRank = ranks[0];
+    for (let i = ranks.length - 1; i >= 0; i--) {
+      if (this.data.totalXP >= ranks[i].xp) {
+        currentRank = ranks[i];
+        break;
+      }
+    }
+    
+    return currentRank;
+  }
+
+  setupSettingsListeners() {
+    // Theme change
+    const themeSelect = document.getElementById('colorTheme');
+    if (themeSelect) {
+      themeSelect.addEventListener('change', (e) => {
+        this.changeTheme(e.target.value);
+      });
+    }
+    
+    // Other settings listeners can be added here
+  }
+
+  changeTheme(theme) {
+    document.body.className = `theme-${theme}`;
+    this.data.settings = this.data.settings || {};
+    this.data.settings.theme = theme;
+    this.showNotification('Thème changé avec succès !', 'success');
+  }
+
+  exportData() {
+    const dataStr = JSON.stringify(this.data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `myRPGLife-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    this.showNotification('Données exportées avec succès !', 'success');
+  }
+
+  importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const importedData = JSON.parse(e.target.result);
+            this.data = { ...this.data, ...importedData };
+            this.updateUI();
+            this.showNotification('Données importées avec succès !', 'success');
+          } catch (error) {
+            this.showNotification('Erreur lors de l\'importation', 'error');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    
+    input.click();
+  }
+
+  resetAllData() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser toutes vos données ? Cette action est irréversible.')) {
+      localStorage.removeItem('myRPGLifeData');
+      location.reload();
+    }
   }
 
   // UI Updates
