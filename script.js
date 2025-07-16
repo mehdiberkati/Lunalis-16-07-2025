@@ -113,6 +113,8 @@ class MyRPGLife {
         const defaultData = {
             totalXP: 0,
             dailyXP: 0,
+            dailyFocusTime: 0,
+            dailyMalus: 0,
             streak: 0,
             lastActiveDate: new Date().toDateString(),
             focusSessions: 0,
@@ -431,6 +433,7 @@ class MyRPGLife {
         // Mettre à jour les statistiques
         this.data.focusSessions++;
         this.data.totalFocusTime += minutes;
+        this.data.dailyFocusTime = (this.data.dailyFocusTime || 0) + minutes;
         
         // Ajouter aux stats journalières
         this.addDailyFocusStats(minutes, xpGained);
@@ -712,9 +715,10 @@ class MyRPGLife {
         let totalPenalty = 0;
         if (instagram >= 1) totalPenalty += Math.floor(instagram) * 3;
         if (music >= 1.5) totalPenalty += Math.floor(music / 1.5) * 5;
-        
+
         if (totalPenalty > 0) {
             this.addXP(-totalPenalty, 'Distractions');
+            this.data.dailyMalus = (this.data.dailyMalus || 0) + totalPenalty;
         }
         
         this.closeModal();
@@ -927,7 +931,6 @@ class MyRPGLife {
         
         // Vérifier si l'utilisateur a atteint son quota XP 5 jours d'affilée
         const today = new Date().toDateString();
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
         
         if (this.data.dailyXP >= 15) {
             if (this.data.doubleOrNothing.lastCheck !== today) {
@@ -1518,6 +1521,8 @@ class MyRPGLife {
             
             // Reset des activités quotidiennes
             this.data.dailyXP = 0;
+            this.data.dailyFocusTime = 0;
+            this.data.dailyMalus = 0;
             this.data.mandatorySessionsToday = 0;
             this.data.bonusSessionsUnlocked = false;
             this.data.dailyActivities = {
